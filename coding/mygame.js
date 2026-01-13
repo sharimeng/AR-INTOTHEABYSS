@@ -526,6 +526,8 @@ const showCelebration = (parent, sound, wowSound) => {
 /* ==========================================================
    3. GAME BUILDERS
    ========================================================== */
+
+// --- UPDATED MATCH GAME (WITH MOBILE TOUCH FIX) ---
 const createMatchGame = (gameId, type, correctSound, wrongSound, celebrationSound, wowSound, onComplete) => {
   const container = document.createElement("div");
   container.className = "glass-panel";
@@ -536,8 +538,6 @@ const createMatchGame = (gameId, type, correctSound, wrongSound, celebrationSoun
   });
 
   const instruction = type === 'look' ? t.instructions.look : t.instructions.fact;
-  
-  // Store display type for transitions
   container.dataset.displayType = "flex";
 
   const data = type === 'look' 
@@ -564,6 +564,28 @@ const createMatchGame = (gameId, type, correctSound, wrongSound, celebrationSoun
     const rightCol = document.createElement("div"); 
     Object.assign(rightCol.style, { display: "flex", flexDirection: "column", gap: "25px", width: "240px" });
     
+    // --- 1. CREATE TARGET BOXES ---
+    const targets = [];
+    shuffleArray([...data]).forEach(item => {
+      const b = document.createElement("div"); 
+      b.className = "creature-box";
+      b.dataset.targetId = item.id; 
+      b.correct = false;
+      
+      const img = document.createElement("img"); 
+      img.src = item.src; 
+      Object.assign(img.style, { width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }); 
+      b.appendChild(img);
+
+      // Mouse Drop
+      b.addEventListener("dragover", e => e.preventDefault());
+      b.addEventListener("drop", e => handleDrop(e.dataTransfer.getData("id"), b));
+
+      targets.push(b);
+      rightCol.appendChild(b); 
+    });
+
+    // --- 2. CREATE DRAGGABLE CARDS ---
     shuffleArray([...data]).forEach(item => {
       const card = document.createElement("div"); 
       card.className = "sea-card"; 
@@ -574,64 +596,133 @@ const createMatchGame = (gameId, type, correctSound, wrongSound, celebrationSoun
         width: "230px", height: "130px", display: "flex", alignItems: "center", 
         justifyContent: "center", padding: "15px", fontSize: "16px", fontWeight: "700", 
         textAlign: "center", borderRadius: "20px", cursor: "grab",
-        touchAction: "none" // <--- IMPORTANT FIX FOR MOBILE DRAG
+        touchAction: "none", // Fix for mobile scroll
+        position: "relative", zIndex: "1"
       });
+
+      // Mouse Start
       card.addEventListener("dragstart", e => e.dataTransfer.setData("id", item.id)); 
+
+      // --- MOBILE TOUCH LOGIC START ---
+      let initialX = 0;
+      let initialY = 0;
+
+      card.addEventListener("touchstart", (e) => {
+        if(card.getAttribute("data-used") === "true") return;
+        e.preventDefault(); 
+        const touch = e.touches[0];
+        initialX = touch.clientX;
+        initialY = touch.clientY;
+        
+        card.style.zIndex = "1000";
+        card.style.transition = "none";
+        card.style.transform = "scale(1.05)";
+        card.style.boxShadow = "0 0 20px var(--bio-cyan)";
+      });
+
+      card.addEventListener("touchmove", (e) => {
+        if(card.getAttribute("data-used") === "true") return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - initialX;
+        const deltaY = touch.clientY - initialY;
+        
+        card.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(1.05)`;
+      });
+
+      card.addEventListener("touchend", (e) => {
+        if(card.getAttribute("data-used") === "true") return;
+        
+        card.style.zIndex = "1";
+        card.style.boxShadow = "none";
+
+        // Collision Detection
+        const touch = e.changedTouches[0];
+        let droppedOnTarget = null;
+
+        targets.forEach(target => {
+            const rect = target.getBoundingClientRect();
+            if (
+                touch.clientX >= rect.left &&
+                touch.clientX <= rect.right &&
+                touch.clientY >= rect.top &&
+                touch.clientY <= rect.bottom
+            ) {
+                droppedOnTarget = target;
+            }
+        });
+
+        card.style.transition = "all 0.3s ease";
+        card.style.transform = "translate(0, 0)";
+
+        if (droppedOnTarget) {
+            handleDrop(item.id, droppedOnTarget, card);
+        }
+      });
+      // --- MOBILE TOUCH LOGIC END ---
+
       leftCol.appendChild(card);
     });
 
-    shuffleArray([...data]).forEach(item => {
-      const b = document.createElement("div"); 
-      b.className = "creature-box";
-      b.correct = false;
-      const img = document.createElement("img"); 
-      img.src = item.src; 
-      Object.assign(img.style, { width: "100%", height: "100%", objectFit: "cover" }); 
-      b.appendChild(img);
-
-      b.addEventListener("dragover", e => e.preventDefault());
-      b.addEventListener("drop", e => {
-        if(b.correct) return; 
-
-        const droppedId = e.dataTransfer.getData("id");
-        const draggedCard = document.getElementById(`drag-${droppedId.replace(/\s+/g, '')}`);
-        
-        if (!draggedCard || draggedCard.getAttribute("data-used") === "true") return;
-
-        draggedCard.setAttribute("data-used", "true"); 
-        attemptCount++;
-
-        if (droppedId === item.id) { 
-          b.style.border = "4px solid var(--correct-green)"; 
-          b.correct = true; 
-          correctSound.play();
-          addPoints(gameId, POINTS_PER_ACTION); 
-
-          const label = document.createElement("div");
-          label.className = "combined-label";
-          label.innerText = type === 'look' ? item.name : item.info;
-          b.appendChild(label);
-          draggedCard.style.opacity = "0"; 
-          draggedCard.draggable = false;
-        } else { 
-          b.style.border = "4px solid var(--error-red)"; 
-          wrongSound.play(); 
-          setTimeout(() => b.style.border = "3px dashed var(--bio-cyan)", 1000); 
-          
-          draggedCard.style.opacity = "0.4";
-          draggedCard.style.backgroundColor = "var(--error-red)";
-          draggedCard.draggable = false;
-          draggedCard.style.cursor = "not-allowed";
-        }
-        
-        if (attemptCount === data.length) {
-           setTimeout(() => onComplete(gameId, container), 500);
-        }
-      });
-      rightCol.appendChild(b); 
-    });
     container.appendChild(leftCol); 
     container.appendChild(rightCol);
+  };
+
+  // Shared Logic for both Touch and Mouse
+  const handleDrop = (droppedId, targetBox, specificCard = null) => {
+      if(targetBox.correct) return;
+
+      let draggedCard = specificCard;
+      if (!draggedCard) {
+         draggedCard = document.getElementById(`drag-${droppedId.replace(/\s+/g, '')}`);
+      }
+      
+      if (!draggedCard || draggedCard.getAttribute("data-used") === "true") return;
+
+      draggedCard.setAttribute("data-used", "true"); 
+      attemptCount++;
+
+      if (droppedId === targetBox.dataset.targetId) { 
+        // CORRECT
+        targetBox.style.border = "4px solid var(--correct-green)"; 
+        targetBox.correct = true; 
+        correctSound.play();
+        addPoints(gameId, POINTS_PER_ACTION); 
+
+        const label = document.createElement("div");
+        label.className = "combined-label";
+        
+        let labelText = "";
+        if(type === 'look') {
+             const found = data.find(d => d.id === droppedId);
+             labelText = found ? found.name : "";
+        } else {
+             const found = data.find(d => d.id === droppedId);
+             labelText = found ? found.info : "";
+        }
+        
+        label.innerText = labelText;
+        targetBox.appendChild(label);
+        
+        draggedCard.style.opacity = "0"; 
+        draggedCard.draggable = false;
+        setTimeout(() => draggedCard.style.visibility = "hidden", 300);
+
+      } else { 
+        // WRONG
+        targetBox.style.border = "4px solid var(--error-red)"; 
+        wrongSound.play(); 
+        setTimeout(() => targetBox.style.border = "3px dashed var(--bio-cyan)", 1000); 
+        
+        draggedCard.style.opacity = "0.4";
+        draggedCard.style.backgroundColor = "var(--error-red)";
+        draggedCard.draggable = false;
+        draggedCard.style.cursor = "not-allowed";
+      }
+      
+      if (attemptCount === data.length) {
+         setTimeout(() => onComplete(gameId, container), 500);
+      }
   };
   
   reset(); 
@@ -639,6 +730,7 @@ const createMatchGame = (gameId, type, correctSound, wrongSound, celebrationSoun
   container.style.display = "none"; 
   return { container, reset, instruction };
 };
+
 
 const createMemoryGame = (gameId, celebrationSound, wowSound, onComplete) => {
   const container = document.createElement("div");
