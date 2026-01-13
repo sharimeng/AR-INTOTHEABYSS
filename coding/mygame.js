@@ -394,9 +394,9 @@ let currentInstruction = "";
 
 // Game State Tracking
 const gameState = {
-    scores: { 0: 0, 1: 0, 2: 0, 3: 0 }, 
-    completed: { 0: false, 1: false, 2: false, 3: false },
-    unlocked: { 0: true, 1: false, 2: false, 3: false } // Level progression
+  scores: { 0: 0, 1: 0, 2: 0, 3: 0 }, 
+  completed: { 0: false, 1: false, 2: false, 3: false },
+  unlocked: { 0: true, 1: false, 2: false, 3: false } // Level progression
 };
 
 const POINTS_PER_ACTION = 10;
@@ -442,53 +442,53 @@ const loadAudioFile = async (filename, camera, loop = true, positional = true) =
 
 /* --- SCORING FUNCTIONS --- */
 const updateScoreDisplay = () => {
-    const total = Object.values(gameState.scores).reduce((a,b)=>a+b, 0);
-    const el = document.getElementById('score-display');
-    const val = document.getElementById('score-val');
-    if(el && val) {
-        val.innerText = `${total} / ${MAX_SCORE}`;
-        el.style.display = "flex";
-    }
-    return total;
+  const total = Object.values(gameState.scores).reduce((a,b)=>a+b, 0);
+  const el = document.getElementById('score-display');
+  const val = document.getElementById('score-val');
+  if(el && val) {
+      val.innerText = `${total} / ${MAX_SCORE}`;
+      el.style.display = "flex";
+  }
+  return total;
 };
 
 const addPoints = (gameIndex, points) => {
-    if(!gameState.completed[gameIndex]) {
-        gameState.scores[gameIndex] += points;
-        updateScoreDisplay();
-    }
+  if(!gameState.completed[gameIndex]) {
+      gameState.scores[gameIndex] += points;
+      updateScoreDisplay();
+  }
 };
 
 const resetGameScore = (gameIndex) => {
-    gameState.scores[gameIndex] = 0;
-    gameState.completed[gameIndex] = false;
-    updateScoreDisplay();
+  gameState.scores[gameIndex] = 0;
+  gameState.completed[gameIndex] = false;
+  updateScoreDisplay();
 };
 
 const showBadge = (score) => {
-    const badgeModal = document.createElement("div");
-    badgeModal.className = "glass-panel badge-modal animate-pop";
-    
-    const isWinner = score >= BADGE_THRESHOLD;
-    const title = isWinner ? t.badgeUnlocked : t.gameOver;
-    const msg = isWinner ? t.badgeMsgWin : t.badgeMsgLose;
-    const icon = isWinner ? "🏆" : "⚓";
-    
-    badgeModal.innerHTML = `
-        <h2 style="color:${isWinner ? '#FFD700' : 'white'}; margin-top:0">${title}</h2>
-        <div class="badge-icon">${icon}</div>
-        <p style="font-size:18px; margin-bottom:5px;">${t.finalScore} <span style="color:var(--bio-cyan)">${score} / ${MAX_SCORE}</span></p>
-        <p style="color:#94a3b8; font-size:14px;">${msg}</p>
-        <button class="nav-btn" style="margin-top:20px; width:100%">${t.close}</button>
-    `;
-    
-    Object.assign(badgeModal.style, {
-        position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-        width: "320px", padding: "30px", textAlign: "center", zIndex: "10005"
-    });
-    
-    document.body.appendChild(badgeModal);
-    badgeModal.querySelector("button").onclick = () => badgeModal.remove();
+  const badgeModal = document.createElement("div");
+  badgeModal.className = "glass-panel badge-modal animate-pop";
+  
+  const isWinner = score >= BADGE_THRESHOLD;
+  const title = isWinner ? t.badgeUnlocked : t.gameOver;
+  const msg = isWinner ? t.badgeMsgWin : t.badgeMsgLose;
+  const icon = isWinner ? "🏆" : "⚓";
+  
+  badgeModal.innerHTML = `
+      <h2 style="color:${isWinner ? '#FFD700' : 'white'}; margin-top:0">${title}</h2>
+      <div class="badge-icon">${icon}</div>
+      <p style="font-size:18px; margin-bottom:5px;">${t.finalScore} <span style="color:var(--bio-cyan)">${score} / ${MAX_SCORE}</span></p>
+      <p style="color:#94a3b8; font-size:14px;">${msg}</p>
+      <button class="nav-btn" style="margin-top:20px; width:100%">${t.close}</button>
+  `;
+  
+  Object.assign(badgeModal.style, {
+      position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+      width: "320px", padding: "30px", textAlign: "center", zIndex: "10005"
+  });
+  
+  document.body.appendChild(badgeModal);
+  badgeModal.querySelector("button").onclick = () => badgeModal.remove();
 };
 
 const showCelebration = (parent, sound, wowSound) => {
@@ -561,7 +561,8 @@ const createMatchGame = (gameId, type, correctSound, wrongSound, celebrationSoun
       Object.assign(card.style, { 
         width: "230px", height: "130px", display: "flex", alignItems: "center", 
         justifyContent: "center", padding: "15px", fontSize: "16px", fontWeight: "700", 
-        textAlign: "center", borderRadius: "20px", cursor: "grab" 
+        textAlign: "center", borderRadius: "20px", cursor: "grab",
+        touchAction: "none" // <--- IMPORTANT FIX FOR MOBILE DRAG
       });
       card.addEventListener("dragstart", e => e.dataTransfer.setData("id", item.id)); 
       leftCol.appendChild(card);
