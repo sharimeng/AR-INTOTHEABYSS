@@ -8,6 +8,12 @@
     />
     <title>Deep Sea AR Experience</title>
     
+    <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+    <script>
+      window.onload = function() {
+        var vConsole = new VConsole();
+      };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap"
@@ -180,6 +186,7 @@
     <div class="h-screen w-full flex flex-col items-center justify-center p-4 relative z-10 overflow-hidden">
       <div class="glassmorphism-container p-6 md:p-10 max-h-[85vh]">
         <div class="mb-4 md:mb-8 text-center">
+          
           <p class="text-cyan-200 tracking-wider mb-1 font-medium text-xs md:text-sm uppercase">WebAR</p>
           <h1 id="title" class="floating-heading text-3xl md:text-5xl mb-2 leading-tight">Into The Abyss</h1>
           <p id="subtitle" class="text-xs md:text-base text-gray-300 italic px-2">"Exploring The Unknown Depths of Marine Life"</p>
@@ -299,7 +306,6 @@
 
       // --- SOUND EFFECT LOGIC UPDATED ---
       const playClickSound = () => {
-        // FIX: Check if muted before playing sound effect
         if (isMuted) return; 
         
         const sound = document.getElementById("clickSound");
@@ -334,7 +340,7 @@
 
       // --- MUTE BUTTON LOGIC UPDATED ---
       muteBtn.onclick = (e) => {
-        e.stopPropagation(); // FIX: Prevents this click from triggering the global "Start Music"
+        e.stopPropagation(); 
         
         if (isMuted) { 
           // Unmute
