@@ -291,7 +291,17 @@
         updateLanguage();
       };
 
+      // --- MUTE VARIABLES ---
+      const music = document.getElementById("bgMusic");
+      const muteBtn = document.getElementById("muteBtn");
+      let isMuted = false;
+      let started = false;
+
+      // --- SOUND EFFECT LOGIC UPDATED ---
       const playClickSound = () => {
+        // FIX: Check if muted before playing sound effect
+        if (isMuted) return; 
+        
         const sound = document.getElementById("clickSound");
         sound.currentTime = 0;
         sound.play().catch(() => {});
@@ -313,11 +323,7 @@
 
       updateLanguage();
 
-      const music = document.getElementById("bgMusic");
-      const muteBtn = document.getElementById("muteBtn");
-      let isMuted = false;
-      let started = false;
-
+      // --- GLOBAL MUSIC STARTER ---
       document.addEventListener("click", () => {
         if (!started && !isMuted) {
           music.volume = 0.6;
@@ -326,9 +332,19 @@
         }
       }, { once: true });
 
-      muteBtn.onclick = () => {
-        if (isMuted) { music.play(); muteBtn.textContent = "🔊"; }
-        else { music.pause(); muteBtn.textContent = "🔇"; }
+      // --- MUTE BUTTON LOGIC UPDATED ---
+      muteBtn.onclick = (e) => {
+        e.stopPropagation(); // FIX: Prevents this click from triggering the global "Start Music"
+        
+        if (isMuted) { 
+          // Unmute
+          music.play().catch(() => {}); 
+          muteBtn.textContent = "🔊"; 
+        } else { 
+          // Mute
+          music.pause(); 
+          muteBtn.textContent = "🔇"; 
+        }
         isMuted = !isMuted;
       };
     </script>
