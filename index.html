@@ -2,18 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <title>Deep Sea AR Experience</title>
     
-    <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
-    <script>
-      window.onload = function() {
-        var vConsole = new VConsole();
-      };
-    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap"
@@ -21,7 +16,15 @@
     />
 
    <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.1.0/DragDropTouch.js"></script>
+   
     <style>
+      /* 3. CSS FIX: Prevents Android from selecting text or flashing blue on touch */
+      * {
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
       body {
         font-family: "Poppins", sans-serif;
         margin: 0;
