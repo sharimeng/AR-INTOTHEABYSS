@@ -3,7 +3,7 @@ const THREE = window.MINDAR.IMAGE.THREE;
 
 /* ==========================================================
    0. LANGUAGE SETTINGS
-   ========================================================== */
+   ========================================================*/
 const urlParams = new URLSearchParams(window.location.search);
 const paramLang = urlParams.get('lang');
 
