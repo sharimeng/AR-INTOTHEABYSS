@@ -2,16 +2,6 @@
 const THREE = window.MINDAR.IMAGE.THREE;
 
 /* ==========================================================
-   ANDROID FIX: PREVENT DEFAULT SCROLLING
-   ========================================================== */
-// This forces Android to respect the drag instead of scrolling the page
-document.addEventListener('touchmove', function(e) {
-    if (e.target.classList.contains('sea-card')) {
-        e.preventDefault();
-    }
-}, { passive: false });
-
-/* ==========================================================
    0. LANGUAGE SETTINGS
    ========================================================== */
 const urlParams = new URLSearchParams(window.location.search);
@@ -139,21 +129,13 @@ style.innerHTML = `
     --card-gradient: linear-gradient(135deg, #0f172a, #1e293b);
     --btn-gradient: linear-gradient(145deg, #020617, #075985);
   }
-
-  /* ANDROID FIX: Disable Selection & Blue Tap Color */
+  
+  /* CRITICAL ANDROID FIXES */
   * {
       -webkit-tap-highlight-color: transparent;
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
+      touch-action: pan-y; /* Allow vertical scroll mostly, specific elements override this */
   }
   
-  /* Input fields must allow typing */
-  input {
-      -webkit-user-select: auto !important;
-      user-select: auto !important;
-  }
-
   /* --- BACK BUTTON STYLE --- */
   .custom-back-btn {
     position: fixed;
@@ -204,7 +186,6 @@ style.innerHTML = `
     overflow: hidden;
     color: white;
     font-family: 'Poppins', sans-serif;
-    pointer-events: auto; /* Ensure clicks work over AR */
   }
 
   .nav-btn {
@@ -537,8 +518,78 @@ const showCelebration = (parent, sound, wowSound) => {
 };
 
 /* ==========================================================
-   3. GAME BUILDERS
+   3. GAME BUILDERS (WITH MANUAL TOUCH DRAG)
    ========================================================== */
+
+// HELPER: MANUAL DRAG AND DROP FOR ANDROID
+const enableTouchDrag = (element, itemId, successCallback, failCallback, checkDropZoneCallback) => {
+    let startX = 0, startY = 0;
+    let initialLeft = 0, initialTop = 0;
+    
+    // START TOUCH
+    element.addEventListener('touchstart', (e) => {
+        if(element.getAttribute('data-used') === 'true') return;
+        e.preventDefault(); // Stop scrolling
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+        
+        // We need to make it absolute to move it freely
+        const rect = element.getBoundingClientRect();
+        
+        // Save placeholder space so layout doesn't break? 
+        // For simplicity, we just make it fixed during drag
+        element.style.position = 'fixed';
+        element.style.left = rect.left + 'px';
+        element.style.top = rect.top + 'px';
+        element.style.zIndex = '10000';
+        element.style.width = '230px'; // Force width back in case flex broke it
+        element.style.opacity = '0.8';
+        
+        // Store initial for logic, but we update directly
+        initialLeft = rect.left;
+        initialTop = rect.top;
+    }, { passive: false });
+
+    // MOVE TOUCH
+    element.addEventListener('touchmove', (e) => {
+        if(element.getAttribute('data-used') === 'true') return;
+        e.preventDefault(); // Stop scrolling
+        const touch = e.touches[0];
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+        element.style.left = (initialLeft + dx) + 'px';
+        element.style.top = (initialTop + dy) + 'px';
+    }, { passive: false });
+
+    // END TOUCH
+    element.addEventListener('touchend', (e) => {
+        if(element.getAttribute('data-used') === 'true') return;
+        const touch = e.changedTouches[0];
+        
+        // Temporarily hide element to check what's underneath
+        element.style.visibility = 'hidden';
+        const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+        element.style.visibility = 'visible';
+        
+        // Find if we dropped on a valid box
+        const box = elementBelow ? elementBelow.closest('.creature-box') : null;
+        
+        if (box && checkDropZoneCallback(box, itemId)) {
+            // SUCCESS
+            successCallback(box, element);
+        } else {
+            // FAILURE - Return to original state
+            element.style.position = 'static'; // Return to flex flow
+            element.style.zIndex = '';
+            element.style.width = '230px';
+            element.style.opacity = '1';
+            failCallback(box); // Play error sound if needed
+        }
+    });
+};
+
+
 const createMatchGame = (gameId, type, correctSound, wrongSound, celebrationSound, wowSound, onComplete) => {
   const container = document.createElement("div");
   container.className = "glass-panel";
@@ -549,8 +600,6 @@ const createMatchGame = (gameId, type, correctSound, wrongSound, celebrationSoun
   });
 
   const instruction = type === 'look' ? t.instructions.look : t.instructions.fact;
-  
-  // Store display type for transitions
   container.dataset.displayType = "flex";
 
   const data = type === 'look' 
@@ -577,6 +626,80 @@ const createMatchGame = (gameId, type, correctSound, wrongSound, celebrationSoun
     const rightCol = document.createElement("div"); 
     Object.assign(rightCol.style, { display: "flex", flexDirection: "column", gap: "25px", width: "240px" });
     
+    // Create Drop Zones first so we can reference them
+    const boxes = [];
+    shuffleArray([...data]).forEach(item => {
+      const b = document.createElement("div"); 
+      b.className = "creature-box";
+      b.correct = false;
+      b.dataset.targetId = item.id; // Store ID for manual check
+      
+      const img = document.createElement("img"); 
+      img.src = item.src; 
+      Object.assign(img.style, { width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }); // Pointer events none allows click through to box
+      b.appendChild(img);
+      
+      rightCol.appendChild(b); 
+      boxes.push(b);
+      
+      // Keep PC Drop Logic for desktop testing
+      b.addEventListener("dragover", e => e.preventDefault());
+      b.addEventListener("drop", e => {
+         // Existing desktop logic logic
+         handleDrop(b, e.dataTransfer.getData("id"), null);
+      });
+    });
+
+    // Handle Drop Logic (Shared between Touch and Desktop)
+    const handleDrop = (box, droppedId, draggedCardElement) => {
+        if(box.correct) return;
+        
+        // Find card if passing ID (Desktop) or Element (Touch)
+        let draggedCard = draggedCardElement;
+        if (!draggedCard) {
+            draggedCard = document.getElementById(`drag-${droppedId.replace(/\s+/g, '')}`);
+        }
+        
+        if (!draggedCard || draggedCard.getAttribute("data-used") === "true") return;
+
+        const targetId = box.dataset.targetId; // Get ID from box
+
+        if (droppedId === targetId) { 
+          // CORRECT
+          draggedCard.setAttribute("data-used", "true"); 
+          attemptCount++;
+          box.style.border = "4px solid var(--correct-green)"; 
+          box.correct = true; 
+          correctSound.play();
+          addPoints(gameId, POINTS_PER_ACTION); 
+
+          const label = document.createElement("div");
+          label.className = "combined-label";
+          label.innerText = draggedCard.innerText; // Use text from card
+          box.appendChild(label);
+          
+          draggedCard.style.opacity = "0"; 
+          draggedCard.style.visibility = "hidden"; // Hide fully
+        } else { 
+          // WRONG
+          box.style.border = "4px solid var(--error-red)"; 
+          wrongSound.play(); 
+          setTimeout(() => box.style.border = "3px dashed var(--bio-cyan)", 1000); 
+          
+          draggedCard.style.opacity = "0.4";
+          draggedCard.style.backgroundColor = "var(--error-red)";
+          setTimeout(() => {
+              draggedCard.style.opacity = "1";
+              draggedCard.style.backgroundColor = ""; // reset color
+          }, 500);
+        }
+        
+        if (attemptCount === data.length) {
+           setTimeout(() => onComplete(gameId, container), 500);
+        }
+    };
+
+    // Create Cards
     shuffleArray([...data]).forEach(item => {
       const card = document.createElement("div"); 
       card.className = "sea-card"; 
@@ -587,64 +710,24 @@ const createMatchGame = (gameId, type, correctSound, wrongSound, celebrationSoun
         width: "230px", height: "130px", display: "flex", alignItems: "center", 
         justifyContent: "center", padding: "15px", fontSize: "16px", fontWeight: "700", 
         textAlign: "center", borderRadius: "20px", cursor: "grab",
-        touchAction: "none",     // FIX: Prevents scroll
-        userSelect: "none",      // FIX: Prevents text selection on Android
-        webkitUserSelect: "none" // FIX: For older Androids
+        touchAction: "none" 
       });
+      
+      // Desktop Drag Start
       card.addEventListener("dragstart", e => e.dataTransfer.setData("id", item.id)); 
+      
+      // ENABLE MANUAL MOBILE DRAG
+      enableTouchDrag(
+          card, 
+          item.id,
+          (box, el) => handleDrop(box, item.id, el), // Success
+          (box) => { if(box) wrongSound.play(); }, // Fail (dropped on wrong box)
+          (box, id) => box.dataset.targetId === id // Check Function
+      );
+      
       leftCol.appendChild(card);
     });
 
-    shuffleArray([...data]).forEach(item => {
-      const b = document.createElement("div"); 
-      b.className = "creature-box";
-      b.correct = false;
-      const img = document.createElement("img"); 
-      img.src = item.src; 
-      Object.assign(img.style, { width: "100%", height: "100%", objectFit: "cover" }); 
-      b.appendChild(img);
-
-      b.addEventListener("dragover", e => e.preventDefault());
-      b.addEventListener("drop", e => {
-        if(b.correct) return; 
-
-        const droppedId = e.dataTransfer.getData("id");
-        const draggedCard = document.getElementById(`drag-${droppedId.replace(/\s+/g, '')}`);
-        
-        if (!draggedCard || draggedCard.getAttribute("data-used") === "true") return;
-
-        draggedCard.setAttribute("data-used", "true"); 
-        attemptCount++;
-
-        if (droppedId === item.id) { 
-          b.style.border = "4px solid var(--correct-green)"; 
-          b.correct = true; 
-          correctSound.play();
-          addPoints(gameId, POINTS_PER_ACTION); 
-
-          const label = document.createElement("div");
-          label.className = "combined-label";
-          label.innerText = type === 'look' ? item.name : item.info;
-          b.appendChild(label);
-          draggedCard.style.opacity = "0"; 
-          draggedCard.draggable = false;
-        } else { 
-          b.style.border = "4px solid var(--error-red)"; 
-          wrongSound.play(); 
-          setTimeout(() => b.style.border = "3px dashed var(--bio-cyan)", 1000); 
-          
-          draggedCard.style.opacity = "0.4";
-          draggedCard.style.backgroundColor = "var(--error-red)";
-          draggedCard.draggable = false;
-          draggedCard.style.cursor = "not-allowed";
-        }
-        
-        if (attemptCount === data.length) {
-           setTimeout(() => onComplete(gameId, container), 500);
-        }
-      });
-      rightCol.appendChild(b); 
-    });
     container.appendChild(leftCol); 
     container.appendChild(rightCol);
   };
