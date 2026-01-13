@@ -2,6 +2,16 @@
 const THREE = window.MINDAR.IMAGE.THREE;
 
 /* ==========================================================
+   ANDROID FIX: PREVENT DEFAULT SCROLLING
+   ========================================================== */
+// This forces Android to respect the drag instead of scrolling the page
+document.addEventListener('touchmove', function(e) {
+    if (e.target.classList.contains('sea-card')) {
+        e.preventDefault();
+    }
+}, { passive: false });
+
+/* ==========================================================
    0. LANGUAGE SETTINGS
    ========================================================== */
 const urlParams = new URLSearchParams(window.location.search);
@@ -130,6 +140,20 @@ style.innerHTML = `
     --btn-gradient: linear-gradient(145deg, #020617, #075985);
   }
 
+  /* ANDROID FIX: Disable Selection & Blue Tap Color */
+  * {
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+  }
+  
+  /* Input fields must allow typing */
+  input {
+      -webkit-user-select: auto !important;
+      user-select: auto !important;
+  }
+
   /* --- BACK BUTTON STYLE --- */
   .custom-back-btn {
     position: fixed;
@@ -180,6 +204,7 @@ style.innerHTML = `
     overflow: hidden;
     color: white;
     font-family: 'Poppins', sans-serif;
+    pointer-events: auto; /* Ensure clicks work over AR */
   }
 
   .nav-btn {
@@ -562,7 +587,9 @@ const createMatchGame = (gameId, type, correctSound, wrongSound, celebrationSoun
         width: "230px", height: "130px", display: "flex", alignItems: "center", 
         justifyContent: "center", padding: "15px", fontSize: "16px", fontWeight: "700", 
         textAlign: "center", borderRadius: "20px", cursor: "grab",
-        touchAction: "none" // <--- IMPORTANT FIX FOR MOBILE DRAG
+        touchAction: "none",     // FIX: Prevents scroll
+        userSelect: "none",      // FIX: Prevents text selection on Android
+        webkitUserSelect: "none" // FIX: For older Androids
       });
       card.addEventListener("dragstart", e => e.dataTransfer.setData("id", item.id)); 
       leftCol.appendChild(card);
